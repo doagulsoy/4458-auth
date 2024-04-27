@@ -10,6 +10,29 @@ const sql = require("mssql");
 const { get } = require("http");
 const getConnection = require("../connection/config");
 
+const studentsApi = "http://localhost:5001/student/getStudents"; // Ensure correct scheme and path
+
+const checkIfStudentExists = async (firstName, lastName, email) => {
+  try {
+    const response = await fetch(
+      `${studentsApi}?firstName=${firstName}&lastName=${lastName}&email=${email}`
+    );
+
+    // Check for successful HTTP response
+    if (!response.ok) {
+      console.error("Failed to fetch student data:", response.statusText);
+      return false;
+    }
+
+    const data = await response.json(); // Attempt to parse as JSON
+    return data.length > 0; // Return true if at least one matching student is found
+  } catch (err) {
+    console.error("Error during checkIfStudentExists:", err);
+    return false; // Return false in case of error
+  }
+};
+
+
 /**
  * @swagger
  * /user:
@@ -61,7 +84,7 @@ app.get("/users", async (req, res) => {
  * /signup:
  *   post:
  *     summary: Sign up a new user
- *     description: Allows a new user to sign up by providing a username, password, and email.
+ *     description: Allows a new user to sign up by providing a  password, and email.
  *     requestBody:
  *       required: true
  *       content:
@@ -69,13 +92,10 @@ app.get("/users", async (req, res) => {
  *           schema:
  *             type: object
  *             required:
- *               - username
  *               - password
  *               - email
  *             properties:
- *               username:
  *                 type: string
- *                 description: Unique username for the user
  *               password:
  *                 type: string
  *                 description: Password for the user account
@@ -86,7 +106,7 @@ app.get("/users", async (req, res) => {
  *       200:
  *         description: User successfully signed up and JWT token generated
  *       400:
- *         description: Username or email already taken
+ *         description: or email already taken
  *       500:
  *         description: Internal Server Error
  */
@@ -94,50 +114,41 @@ app.get("/users", async (req, res) => {
 //signup
 app.post("/signup", async (req, res) => {
   try {
-    const { firstName, lastName, username, email, password } = req.body;
-    console.log(req.body);
-    const request = new sql.Request();
-
-    // Check if username exists
-    let result = await request
-      .input("username", sql.VarChar, username)
-      .query(`SELECT * FROM [dbo].[user] WHERE username = @username`);
-    if (result.recordset.length > 0) {
-      return res.status(400).send("Username is already taken");
-    }
-
-    // Check if email exists
-    result = await request
-      .input("email", sql.VarChar, email)
-      .query(`SELECT * FROM [dbo].[user] WHERE email = @email`);
-    if (result.recordset.length > 0) {
-      return res.status(400).send("Email is already taken");
-    }
+    const { firstName, lastName, email, password } = req.body;
+    const connection = await getConnection(); // Ensure you have a valid connection
+    const request = new sql.Request(connection); // Create a new request with the connection
 
     // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Insert the new user into the database
+    // Define input parameters for the query
+    request.input("firstName", sql.NVARCHAR(50), firstName);
+    request.input("lastName", sql.NVARCHAR(50), lastName);
+    request.input("email", sql.NVARCHAR(100), email);
+    request.input("password", sql.NVARCHAR(255), hashedPassword);
+
+    // Insert the new user into the database with parameterized queries
     await request.query(
-      `INSERT INTO [dbo].[user] (firstName, lastName, username, password, email) 
-       VALUES ('${firstName}', '${lastName}', '${username}', '${hashedPassword}', '${email}')`
+      `INSERT INTO [dbo].[User] (firstName, lastName, email, password) 
+       VALUES (@firstName, @lastName, @email, @password)`
     );
 
     // Generate JWT token
-    const token = jwt.sign({ username }, secretKey, { expiresIn: "1h" });
+    const token = jwt.sign({ email }, secretKey, { expiresIn: "1h" });
     res.json({ token });
   } catch (err) {
-    console.error(err);
+    console.error("Error during signup:", err);
     res.status(500).send("Internal Server Error");
   }
 });
+
 
 /**
  * @swagger
  * /login:
  *   post:
  *     summary: Log in a user
- *     description: Allows a user to log in by providing a username and password.
+ *     description: Allows a user to log in by providing and password.
  *     requestBody:
  *       required: true
  *       content:
@@ -145,12 +156,8 @@ app.post("/signup", async (req, res) => {
  *           schema:
  *             type: object
  *             required:
- *               - username
  *               - password
  *             properties:
- *               username:
- *                 type: string
- *                 description: Username of the user
  *               password:
  *                 type: string
  *                 description: Password of the user
@@ -158,40 +165,37 @@ app.post("/signup", async (req, res) => {
  *       200:
  *         description: User successfully logged in and JWT token generated
  *       400:
- *         description: Username or password is incorrect
  *       500:
  *         description: Internal Server Error
  */
 //login
 app.post("/login", async (req, res) => {
   try {
-    const { username, password } = req.body;
-    const request = new sql.Request();
-    request.input("username", sql.VarChar, username);
+    const { email, password } = req.body;
+    const connection = await getConnection(); // Ensure you have a valid connection
+    const request = new sql.Request(connection); // Create a new request with the connection
 
+    // Get the user from the database
     const result = await request.query(
-      `SELECT * FROM [dbo].[user] WHERE username = @username`
+      `SELECT * FROM [dbo].[User] WHERE email = '${email}'`
     );
+
     if (result.recordset.length === 0) {
-      return res.status(400).send("Username or password is incorrect");
+      return res.status(400).send("User not found");
     }
 
-    // Compare hashed password
-    const validPassword = await bcrypt.compare(
-      password,
-      result.recordset[0].password
-    );
-    if (!validPassword) {
-      return res.status(400).send("Username or password is incorrect");
+    const user = result.recordset[0];
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      return res.status(400).send("Invalid password");
     }
 
     // Generate JWT token
-    const token = jwt.sign({ username }, secretKey, { expiresIn: "1h" });
-
-    // Send the token as a response
+    const token = jwt.sign({ email }, secretKey, { expiresIn: "1h" });
     res.json({ token });
   } catch (err) {
-    console.error(err);
+    console.error("Error during login:", err);
     res.status(500).send("Internal Server Error");
   }
 });
