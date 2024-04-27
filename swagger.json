@@ -1,0 +1,282 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Doga Nur Gulsoy Midterm 1 API",
+    "version": "1.0.0",
+    "description": "Doga Nur Gulsoy Midterm 1 API Documentation"
+  },
+  "servers": [
+    {
+      "url": "https://midterm-1-api.vercel.app/",
+      "description": "Development Server"
+    }
+  ],
+  "paths": {
+    "/airline/tickets": {
+      "get": {
+        "summary": "Retrieve a list of tickets",
+        "description": "Endpoint to get information about all users. Requires JWT authentication.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of tickets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Ticket"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized access - No token provided or token is invalid"
+          }
+        }
+      }
+    },
+    "/airline/companies": {
+      "get": {
+        "summary": "Retrieve a list of companies",
+        "description": "Endpoint to get information about all companies. Requires JWT authentication.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of companies",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Company"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized access - No token provided or token is invalid"
+          }
+        }
+      }
+    },
+    "/auth/users": {
+      "get": {
+        "summary": "Retrieve a list of users",
+        "description": "Endpoint to get information about all users. Requires JWT authentication.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of users",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/User"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized access - No token provided or token is invalid"
+          }
+        }
+      }
+    },
+    "/airline/buyTicket": {
+      "post": {
+        "summary": "Buy a ticket for a specific flight",
+        "description": "Endpoint to purchase a ticket for a given flight number.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["companyId", "ticketNumber"],
+                "properties": {
+                  "companyId": {
+                    "type": "integer",
+                    "description": "Company ID for the flight"
+                  },
+                  "ticketNumber": {
+                    "type": "integer",
+                    "description": "Ticket number for the flight"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ticket successfully purchased"
+          },
+          "400": {
+            "description": "Invalid request parameters"
+          },
+          "401": {
+            "description": "Authentication error"
+          }
+        }
+      }
+    },
+    "/auth/signup": {
+      "post": {
+        "summary": "Sign up a new user",
+        "description": "Allows a new user to sign up by providing a username, password, and email.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "firstName",
+                  "lastName",
+                  "username",
+                  "password",
+                  "email"
+                ],
+                "properties": {
+                  "firstName": {
+                    "type": "string",
+                    "description": "First name of the user"
+                  },
+                  "lastName": {
+                    "type": "string",
+                    "description": "Last name of the user"
+                  },
+                  "username": {
+                    "type": "string",
+                    "description": "Unique username for the user"
+                  },
+                  "password": {
+                    "type": "string",
+                    "description": "Password for the user account"
+                  },
+                  "email": {
+                    "type": "string",
+                    "description": "Email address of the user"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User successfully signed up and JWT token generated"
+          },
+          "400": {
+            "description": "Username or email already taken"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Log in a user",
+        "description": "Allows a user to log in by providing a username and password.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["username", "password"],
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "description": "Username of the user"
+                  },
+                  "password": {
+                    "type": "string",
+                    "description": "Password of the user"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User successfully logged in and JWT token generated"
+          },
+          "400": {
+            "description": "Username or password is incorrect"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "username": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          }
+        }
+      },
+      "Ticket": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "flightNumber": {
+            "type": "string"
+          },
+          "ticketNumber": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}
